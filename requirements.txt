@@ -9,3 +9,5 @@ pdf2image
 numpy
 fitz
 pymupdf
+tools
+frontend
