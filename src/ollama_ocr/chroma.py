@@ -1,5 +1,8 @@
 import streamlit as st
 from ocr_processor import OCRProcessor
+from langchain.embeddings import OllamaEmbeddings
+from langchain.vectorstores import Chroma
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 import tempfile
 import os
 from PIL import Image
@@ -60,6 +63,21 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# Chroma DB 초기화
+def initialize_vector_db(reset=False, embeddings=None):
+    PERSIST_DIRECTORY = r"D:\conda\chroma_db"
+    if reset and os.path.exists(PERSIST_DIRECTORY):
+        shutil.rmtree(PERSIST_DIRECTORY)
+
+    try:
+        vector_db = Chroma(persist_directory=PERSIST_DIRECTORY, embedding_function=embeddings)
+        print("벡터 DB 로드 성공")
+        return vector_db
+    except Exception as e:
+        print(f"벡터 DB 초기화 실패: {e}")
+        return None
+
+
 def get_available_models():
     response = requests.get(selected_server + "/api/tags")
     json_data = json.loads(response.text)["models"]
@@ -97,15 +115,16 @@ def process_batch_images(processor, image_paths, format_type, enable_preprocessi
 def main():
     st.title("🔍 Vision OCR Lab")
     st.markdown("<p style='text-align: center; color: #666;'>Powered by Ollama Vision Models</p>", unsafe_allow_html=True)
-
+    
     # Sidebar controls
 with st.sidebar:
     st.header("🎮 Controls")
 
     selected_server = st.selectbox(
         "🤖 Select Server",
-        ["http://localhost:11434",
-        "http://127.0.0.1:11434",],
+        ["http://192.168.2.87:11434",
+        "http://mattangja.synology.me:43618",
+        "http://llm.devangs.com",],
         index=0,
     )
     
@@ -227,6 +246,23 @@ with tab1:
                         )
                         st.subheader("📝 Extracted Text")
                         st.markdown(result)
+
+                        # Ollama 임베딩 설정
+                        embeddings = OllamaEmbeddings(model="nomic-embed-text:latest", base_url=selected_server)
+                        vector_db = initialize_vector_db(reset=False, embeddings=embeddings)
+                        # result to text document
+                        text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=160)
+                        documents = text_splitter.create_documents([result])
+
+                        # # 문서별로 파일명, 페이지 번호, 조각 번호를 메타데이터에 추가
+                        file_name = os.path.basename(image_paths[0])
+                        for i, doc in enumerate(documents):
+                            page_number = i + 1  # 각 문서의 페이지 번호를 1부터 시작하도록 설정
+                            doc.metadata = {"file_name": file_name, "page_number": page_number}
+
+                        vector_db.add_documents(documents)
+                        vector_db.persist()
+                        print("PDF 텍스트가 벡터 DB에 성공적으로 추가되었습니다.")
                         
                         # Download button for single result
                         st.download_button(
@@ -265,6 +301,7 @@ with tab1:
                             st.error("⚠️ Some files had errors:")
                             for file_path, error in results['errors'].items():
                                 st.warning(f"{os.path.basename(file_path)}: {error}")
+                        
 
                         # Download all results as JSON
                         if st.button("📥 Download All Results"):

@@ -92,7 +92,7 @@ class OCRProcessor:
             else:
                 # Generic prompt templates for different formats
                 prompts = {
-                    "markdown": """Please look at this image and extract all the text content. Format the output in markdown:
+                    "markdown": """Please look at this image and extract all the text content. Format the output in markdown, 한글:
                     - Use headers (# ## ###) for titles and sections
                     - Use bullet points (-) for lists
                     - Use proper markdown formatting for emphasis and structure
