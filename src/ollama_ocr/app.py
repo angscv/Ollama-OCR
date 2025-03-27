@@ -104,8 +104,9 @@ with st.sidebar:
 
     selected_server = st.selectbox(
         "🤖 Select Server",
-        ["http://localhost:11434",
-        "http://127.0.0.1:11434",],
+        ["http://192.168.2.87:11434",
+        "http://mattangja.synology.me:43618",
+        "http://llm.devangs.com",],
         index=0,
     )
     
